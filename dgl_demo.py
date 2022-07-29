@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import dgl.data
 from dgl.nn import GraphConv
+from utility import visualize_subgraph
+import matplotlib.pyplot as plt
 
 dataset = dgl.data.CoraGraphDataset()
 g = dataset[0]
@@ -66,6 +68,9 @@ print(ig_attr_node.shape)
 ig_attr_node = ig_attr_node.abs().sum(dim=1)
 ig_attr_node /= ig_attr_node.max()
 
+# Visualize
+num_hops = 2
+# ax, nx_g = visualize_subgraph(g, output_idx, num_hops,node_alpha=ig_attr_node)
 
 def model_forward(edge_mask, g):
     out = model(g.ndata['feat'], g, edge_weight=edge_mask)
@@ -78,3 +83,15 @@ ig = IntegratedGradients(partial(model_forward, g=g))
 ig_attr_edge = ig.attribute(edge_mask, target=target,
                             internal_batch_size=g.num_nodes(), n_steps=50)
 print(ig_attr_edge.shape)
+
+# Scale attributions to [0, 1]:
+ig_attr_edge = ig_attr_edge.abs()
+ig_attr_edge /= ig_attr_edge.max()
+
+# Visualize
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops,edge_alpha=ig_attr_edge)
+plt.show()
+
+# Visualize node and edge explainability
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops,edge_alpha=ig_attr_edge,node_alpha=ig_attr_node)
+plt.show()
