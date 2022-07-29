@@ -53,7 +53,7 @@ for epoch in range(1, 201):
     loss.backward()
     optimizer.step()
 
-# 选取索引为10的节点进行可解释性分析
+# Select the node with index 10 for interpretability analysis
 output_idx = 10
 target = int(g.ndata['label'][output_idx])
 print(target)
