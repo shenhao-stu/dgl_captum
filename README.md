@@ -1,6 +1,6 @@
-# Getting started with Captum 
+# Explaining Graph Neural Network with Captum 
 
-In this tutorial we demonstrate how to apply feature attribution methods to graphs. Specifically, we try to find the most important edges for each instance prediction.
+In this tutorial we demonstrate how to apply feature attribution methods to graphs. Specifically, we try to find the most important nodes and edges to the model in node classification..
 
 We use cora dataset from dgl.data. The Cora dataset used in this tutorial only consists of one single graph.
 
@@ -19,20 +19,18 @@ from dgl.nn import GraphConv
 
 
 ```python
-# A DGL Dataset object may contain one or multiple graphs.
 # The Cora dataset used in this tutorial only consists of one single graph.
 dataset = dgl.data.CoraGraphDataset()
 g = dataset[0]
 ```
 
-      NumNodes: 2708
-      NumEdges: 10556
-      NumFeats: 1433
-      NumClasses: 7
-      NumTrainingSamples: 140
-      NumValidationSamples: 500
-      NumTestSamples: 1000
-    Done loading data from cached files.
+    NumNodes: 2708
+    NumEdges: 10556
+    NumFeats: 1433
+    NumClasses: 7
+    NumTrainingSamples: 140
+    NumValidationSamples: 500
+    NumTestSamples: 1000
 
 
 ## Define the model
@@ -85,9 +83,6 @@ for epoch in range(1,201):
     optimizer.step()
 ```
 
-    /Users/yingpei/opt/anaconda3/envs/dgl/lib/python3.9/site-packages/torch/amp/autocast_mode.py:198: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
-      warnings.warn('User provided device_type of \'cuda\', but CUDA is not available. Disabling')
-
 
 ## Explaining the predictions
 We use the [captum](https://captum.ai/) library for calculating the attribution values.
@@ -102,8 +97,6 @@ print(target)
 
     0
 
-
-
 ```python
 # import captum
 from captum.attr import IntegratedGradients
@@ -116,13 +109,8 @@ ig_attr_node = ig.attribute(g.ndata['feat'], target=target,
 print(ig_attr_node.shape)
 ```
 
-    /Users/yingpei/opt/anaconda3/envs/dgl/lib/python3.9/site-packages/torch/amp/autocast_mode.py:198: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
-      warnings.warn('User provided device_type of \'cuda\', but CUDA is not available. Disabling')
-
 
     torch.Size([2708, 1433])
-
-
 
 ```python
 # Scale attributions to [0, 1]:
@@ -130,24 +118,17 @@ ig_attr_node = ig_attr_node.abs().sum(dim=1)
 ig_attr_node /= ig_attr_node.max()
 ```
 
-
 ```python
 # Visualize
+from utility import visualize_subgraph
+import matplotlib.pyplot as plt
+
+num_hops = 2
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node)
+plt.show()
 ```
 
-
-```python
-ig_attr_node
-```
-
-
-
-
-    tensor([0.1533, 0.2043, 0.3890,  ..., 0.2280, 0.1629, 0.1877],
-           dtype=torch.float64)
-
-
-
+<img src="README.assets/Figure_1.png" style="zoom:50%;" />
 
 ```python
 def model_forward(edge_mask, g):
@@ -162,34 +143,37 @@ ig_attr_edge = ig.attribute(edge_mask, target=target,
 print(ig_attr_edge.shape)
 ```
 
-    /Users/yingpei/opt/anaconda3/envs/dgl/lib/python3.9/site-packages/captum/attr/_utils/batching.py:45: UserWarning: Internal batch size cannot be less than the number of input examples. Defaulting to internal batch size of 10556 equal to the number of examples.
-      warnings.warn(
-
 
     torch.Size([10556])
 
-
-
 ```python
 # Scale attributions to [0, 1]:
-g_attr_edge = ig_attr_edge.abs()
+ig_attr_edge = ig_attr_edge.abs()
 ig_attr_edge /= ig_attr_edge.max()
 ```
 
 
 ```python
 # Visualize
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, edge_alpha=ig_attr_edge)
+plt.show()
 ```
 
+<img src="README.assets/Figure_2.png" style="zoom:50%;" />
 
 ```python
-ig_attr_edge
+# Visualize node and edge explainability
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node, edge_alpha=ig_attr_edge)
+plt.show()
 ```
+<img src="README.assets/Figure_3.png" style="zoom:50%;" />
 
+****
 
+## To Do List
 
+**Problems:**
 
-    tensor([-0.2232, -0.2149, -0.2420,  ..., -0.0056, -0.0506, -0.0463],
-           dtype=torch.float64, grad_fn=<DivBackward0>)
-
+- make a heatmap plot for visualizing the subgraph.
+- the value of ig_attr_node and ig_attr_edge still to be something wrong.
 
