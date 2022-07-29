@@ -1,31 +1,43 @@
-import dgl
-from torch import Tensor
-import networkx as nx
 from inspect import signature
-import matplotlib.pyplot as plt
 from math import sqrt
+
+import dgl
+import matplotlib.pyplot as plt
+import networkx as nx
+import torch
+from torch import Tensor
 
 NID, EID = '_ID', '_ID'
 
 
-def visualize_subgraph(graph: dgl.DGLGraph, node_idx: int, num_hops: int, edge_alpha: Tensor, node_alpha: Tensor = None, seed: int = 10, **kwargs):
+def visualize_subgraph(graph: dgl.DGLGraph, node_idx: int, num_hops: int, node_alpha: Tensor = None,
+                       edge_alpha: Tensor = None, seed: int = 10, **kwargs):
     """
     Visualize a subgraph of the model.
     """
 
-    assert edge_alpha.size(0) == graph.number_of_edges()
+    if node_alpha is not None:
+        assert node_alpha.size(0) == graph.number_of_nodes()
+        assert ((node_alpha >= 0) & (node_alpha <= 1)).all()
+    else:
+        node_alpha = torch.ones(graph.number_of_nodes())
+
+    if edge_alpha is not None:
+        assert edge_alpha.size(0) == graph.number_of_edges()
+        assert ((edge_alpha >= 0) & (edge_alpha <= 1)).all()
+    else:
+        edge_alpha = torch.ones(graph.number_of_edges())
 
     # Only operate on a k-hop subgraph around `node_idx`.
     sg, _ = dgl.khop_in_subgraph(graph, node_idx, num_hops)
     subnode_idx = sg.ndata[NID].long()
     subedge_idx = sg.edata[EID].long()
     edge_alpha_subset = edge_alpha.gather(0, subedge_idx)
-    # node_alpha_subset = node_alpha[subnode_idx]
+    node_alpha_subset = node_alpha[subnode_idx]
     sg.edata['importance'] = edge_alpha_subset
-    # sg.ndata['importance'] = node_alpha_subset
+    sg.ndata['importance'] = node_alpha_subset
 
-    # nx_g = sg.to_networkx(node_attrs=['importance'], edge_attrs=['importance'])
-    nx_g = sg.to_networkx(edge_attrs=['importance'])
+    nx_g = sg.to_networkx(node_attrs=['importance'], edge_attrs=['importance'])
     mapping = {k: i for k, i in enumerate(subnode_idx.tolist())}
     nx_g = nx.relabel_nodes(nx_g, mapping)
 
@@ -54,15 +66,7 @@ def visualize_subgraph(graph: dgl.DGLGraph, node_idx: int, num_hops: int, edge_a
 
     node_color = [0] * sg.number_of_nodes()
 
-    if node_alpha is None:
-        nx.draw_networkx_nodes(nx_g, pos, node_color=node_color, **node_kwargs)
-    else:
-        assert node_alpha.size(0) == graph.number_of_nodes()
-        node_alpha_subset = node_alpha[subnode_idx]
-        assert ((node_alpha_subset >= 0) & (node_alpha_subset <= 1)).all()
-        nx.draw_networkx_nodes(nx_g, pos, alpha=node_alpha_subset.tolist(
-        ), node_color=node_color, **node_kwargs)
-
+    nx.draw_networkx_nodes(nx_g, pos, alpha=node_alpha_subset.tolist(), node_color=node_color, **node_kwargs)
     nx.draw_networkx_labels(nx_g, pos, **label_kwargs)
 
     return ax, nx_g

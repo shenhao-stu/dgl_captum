@@ -1,13 +1,14 @@
 from functools import partial
-from captum.attr import IntegratedGradients
-import dgl
+
+import dgl.data
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import dgl.data
+from captum.attr import IntegratedGradients
 from dgl.nn import GraphConv
+
 from utility import visualize_subgraph
-import matplotlib.pyplot as plt
 
 dataset = dgl.data.CoraGraphDataset()
 g = dataset[0]
@@ -57,7 +58,6 @@ output_idx = 10
 target = int(g.ndata['label'][output_idx])
 print(target)
 
-
 # Node explainability
 ig = IntegratedGradients(partial(model.forward, g=g))
 ig_attr_node = ig.attribute(g.ndata['feat'], target=target,
@@ -70,7 +70,9 @@ ig_attr_node /= ig_attr_node.max()
 
 # Visualize
 num_hops = 2
-# ax, nx_g = visualize_subgraph(g, output_idx, num_hops,node_alpha=ig_attr_node)
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node)
+plt.show()
+
 
 def model_forward(edge_mask, g):
     out = model(g.ndata['feat'], g, edge_weight=edge_mask)
@@ -89,9 +91,9 @@ ig_attr_edge = ig_attr_edge.abs()
 ig_attr_edge /= ig_attr_edge.max()
 
 # Visualize
-ax, nx_g = visualize_subgraph(g, output_idx, num_hops,edge_alpha=ig_attr_edge)
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, edge_alpha=ig_attr_edge)
 plt.show()
 
 # Visualize node and edge explainability
-ax, nx_g = visualize_subgraph(g, output_idx, num_hops,edge_alpha=ig_attr_edge,node_alpha=ig_attr_node)
+ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node, edge_alpha=ig_attr_edge)
 plt.show()
