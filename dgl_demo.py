@@ -20,30 +20,32 @@ class GCN(nn.Module):
         self.conv1 = GraphConv(in_feats, h_feats)
         self.conv2 = GraphConv(h_feats, num_classes)
 
-    def forward(self, in_feat, g, edge_weight=None):
+    def forward(self, in_feat, g, edge_weight=None, nid=None):
         h = self.conv1(g, in_feat, edge_weight=edge_weight)
         h = F.relu(h)
         h = self.conv2(g, h, edge_weight=edge_weight)
-        return h
+        # nid is used to identify the target node
+        if nid is None:
+            return h
+        else:
+            return h[nid:nid + 1]
 
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = GCN(g.ndata['feat'].shape[1], 16, dataset.num_classes).to(device)
-g = g.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 
 features = g.ndata['feat']
 labels = g.ndata['label']
 train_mask = g.ndata['train_mask']
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = GCN(features.shape[1], 16, dataset.num_classes).to(device)
+g = g.to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+
+# Training
 for epoch in range(1, 201):
     model.train()
     optimizer.zero_grad()
     # Forward
     logits = model(features, g)
-
-    # Compute prediction
-    pred = logits.argmax(1)
 
     # Compute loss
     # Note that you should only compute the losses of the nodes in the training set.
@@ -55,12 +57,12 @@ for epoch in range(1, 201):
 
 # Select the node with index 10 for interpretability analysis
 output_idx = 10
-target = int(g.ndata['label'][output_idx])
+target = int(labels[output_idx])
 print(target)
 
 # Node explainability
-ig = IntegratedGradients(partial(model.forward, g=g))
-ig_attr_node = ig.attribute(g.ndata['feat'], target=target,
+ig = IntegratedGradients(partial(model.forward, g=g, nid=output_idx))
+ig_attr_node = ig.attribute(features, target=target,
                             internal_batch_size=g.num_nodes(), n_steps=50)
 print(ig_attr_node.shape)
 
@@ -74,16 +76,18 @@ ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node)
 plt.show()
 
 
-def model_forward(edge_mask, g):
-    out = model(g.ndata['feat'], g, edge_weight=edge_mask)
+def model_forward(edge_mask, g, nid):
+    out = model(g.ndata['feat'], g, edge_weight=edge_mask, nid=nid)
     return out
 
 
 # Edge explainability
 edge_mask = torch.ones(g.num_edges()).requires_grad_(True).to(device)
-ig = IntegratedGradients(partial(model_forward, g=g))
-ig_attr_edge = ig.attribute(edge_mask, target=target,
-                            internal_batch_size=g.num_nodes(), n_steps=50)
+# ig = IntegratedGradients(partial(model_forward, g=g, nid=output_idx))
+# ig_attr_edge = ig.attribute(edge_mask, target=target,internal_batch_size=g.num_edges(), n_steps=50)
+ig = IntegratedGradients(model_forward)
+ig_attr_edge = ig.attribute(edge_mask, target=target, additional_forward_args=(g, output_idx),
+                            internal_batch_size=g.num_edges(), n_steps=50)
 print(ig_attr_edge.shape)
 
 # Scale attributions to [0, 1]:
@@ -95,5 +99,6 @@ ax, nx_g = visualize_subgraph(g, output_idx, num_hops, edge_alpha=ig_attr_edge)
 plt.show()
 
 # Visualize node and edge explainability
-ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node, edge_alpha=ig_attr_edge)
+ax, nx_g = visualize_subgraph(
+    g, output_idx, num_hops, node_alpha=ig_attr_node, edge_alpha=ig_attr_edge)
 plt.show()
