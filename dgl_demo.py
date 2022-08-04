@@ -12,6 +12,7 @@ from utility import visualize_subgraph
 
 dataset = dgl.data.CoraGraphDataset()
 g = dataset[0]
+g = dgl.add_self_loop(g)
 
 
 class GCN(nn.Module):
