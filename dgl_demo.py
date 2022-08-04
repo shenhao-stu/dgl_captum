@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from captum.attr import IntegratedGradients
-from dgl.nn import GraphConv
+from dgl.nn.pytorch import GraphConv
 
 from utility import visualize_subgraph
 
