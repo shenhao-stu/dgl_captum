@@ -1,13 +1,15 @@
+import json
 import os.path as osp
+
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
-from captum.attr import IntegratedGradients
-
 import torch_geometric.transforms as T
+from captum.attr import IntegratedGradients
 from torch_geometric.datasets import Planetoid
 from torch_geometric.nn import Explainer, GCNConv, to_captum
 
+resdict = {}
 dataset = 'Cora'
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data', 'Planetoid')
 dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
@@ -84,6 +86,14 @@ ax, G = explainer.visualize_subgraph(output_idx, data.edge_index, ig_attr_edge,
                                      node_alpha=ig_attr_node)
 plt.show()
 
+# Save into dictionary
+resdict['ig_attr_node'] = ig_attr_node[ig_attr_node != 0].cpu().tolist()
+resdict['ig_attr_node_index'] = torch.nonzero(
+    ig_attr_node).cpu().flatten().tolist()
+resdict['ig_attr_edge'] = ig_attr_edge[ig_attr_edge != 0].cpu().detach().tolist()
+resdict['ig_attr_edge_index'] = torch.nonzero(
+    ig_attr_edge).cpu().flatten().detach().tolist()
+
 # Node and edge explainability
 # ============================
 
@@ -105,3 +115,17 @@ ig_attr_edge /= ig_attr_edge.max()
 ax, G = explainer.visualize_subgraph(output_idx, data.edge_index, ig_attr_edge,
                                      node_alpha=ig_attr_node)
 plt.show()
+
+# Save into dictionary
+resdict['combine_ig_attr_node'] = ig_attr_node[ig_attr_node != 0].cpu().tolist()
+resdict['combine_ig_attr_node_index'] = torch.nonzero(
+    ig_attr_node).cpu().flatten().tolist()
+resdict['combine_ig_attr_edge'] = ig_attr_edge[ig_attr_edge !=
+                                               0].cpu().detach().tolist()
+resdict['combine_ig_attr_edge_index'] = torch.nonzero(
+    ig_attr_edge).cpu().flatten().detach().tolist()
+filename = './resdict_pyg.json'
+json_str = json.dumps(resdict, indent=4)
+
+with open(filename, 'w') as json_file:
+    json_file.write(json_str)
