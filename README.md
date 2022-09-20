@@ -1,24 +1,26 @@
 # Explaining Graph Neural Network with Captum 
 
-In this tutorial we demonstrate how to apply feature attribution methods to graphs. Specifically, we try to find the most important nodes and edges to the model in node classification..
+In recent years, research on the interpretability of deep learning models has made significant progress. Compared to cv and nlp domains, there is less research and application of graph model interpretability, yet it is the key to understanding deep graph neural networks. Generally, GNN explanation research often starts with the following tasks: **Which input edges are more important? Which input nodes are more important? **
 
-We use cora dataset from dgl.data. The Cora dataset used in this tutorial only consists of one single graph.
+Node-centered subgraphs play a critical role in analyzing GNNs. The k-hop subgraph of a node fully determines the information a k-layer GNN exploits to generate its final node representation. Many GNN explanation methods provide explanations by extracting a subgraph and assigning importance weights to the nodes and edges of it. We will visualize node-centered weighted subgraphs through DGL's built-in functions. This is beneficial for debugging and understanding GNNs and GNN explanation methods.
+
+For this demonstration, we will use IntegratedGradients from [Captum](https://github.com/pytorch/captum) to explain the predictions of a graph convolutional network (GCN). Specifically, we try to find the most important nodes and edges to the model in node classification.
+
+Captum is a model interpretability and understanding library for PyTorch. You can install it with
+
+```bash
+pip install captum
+```
+
+## Loading Cora Dataset
+
+First, we load DGL’s built-in Cora dataset and retrieve its graph structure, node labels (classes) and the number of node classes.
 
 
 ```python
 # Install and import required packages.
 import dgl
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import dgl.data
-from dgl.nn import GraphConv
-```
-
-## Loading Cora Dataset
-
-
-```python
 # The Cora dataset used in this tutorial only consists of one single graph.
 dataset = dgl.data.CoraGraphDataset()
 g = dataset[0]
@@ -34,10 +36,13 @@ g = dataset[0]
 
 
 ## Define the model
-This tutorial will build a two-layer Graph Convolutional Network (GCN). Each layer computes new node representations by aggregating neighbor information. What's more, we use GraphConv which supports edge_weight as a parameter.
+Then, we will build a two-layer Graph Convolutional Network (GCN). Each layer computes new node representations by aggregating neighbor information. What's more, we use GraphConv which supports `edge_weight` as a parameter to calculate the importance of the edge in the edge explainability task.
 
 
 ```python
+from dgl.nn import GraphConv
+
+# Define a class for GCN
 class GCN(nn.Module):
     def __init__(self, in_feats, h_feats, num_classes):
         super(GCN, self).__init__()
@@ -52,10 +57,12 @@ class GCN(nn.Module):
 ```
 
 ## Training the model
-Training this GCN is similar to training other PyTorch neural networks.
-
 
 ```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = GCN(g.ndata['feat'].shape[1], 16, dataset.num_classes).to(device)
 g = g.to(device)
@@ -83,9 +90,11 @@ for epoch in range(1,201):
     optimizer.step()
 ```
 
-
 ## Explaining the predictions
-We use the [captum](https://captum.ai/) library for calculating the attribution values.
+
+First, we will complete the task of which input nodes are more important.
+
+We attribute the model predictions to the input node features with IntegratedGradients.
 
 
 ```python
@@ -97,6 +106,8 @@ print(target)
 
     0
 
+Since the `IntergratedGradients` method only allows one argument to be passed, we use `partial` function to pass the default value to the forward function.
+
 ```python
 # import captum
 from captum.attr import IntegratedGradients
@@ -104,6 +115,7 @@ from functools import partial
 
 # Node explainability
 ig = IntegratedGradients(partial(model.forward, g=g))
+# Attribute the predictions for node class 0 to the input features
 ig_attr_node = ig.attribute(g.ndata['feat'], target=target,
                             internal_batch_size=g.num_nodes(), n_steps=50)
 print(ig_attr_node.shape)
@@ -112,11 +124,15 @@ print(ig_attr_node.shape)
 
     torch.Size([2708, 1433])
 
+We compute the node importance weights from the input feature weights and normalize them.
+
 ```python
 # Scale attributions to [0, 1]:
 ig_attr_node = ig_attr_node.abs().sum(dim=1)
 ig_attr_node /= ig_attr_node.max()
 ```
+
+We visualize node-centered weighted subgraphs through DGL's built-in functions.
 
 ```python
 # Visualize
@@ -129,6 +145,10 @@ plt.show()
 ```
 
 <img src="README.assets/Figure_1.png" style="zoom:50%;" />
+
+Then, we will complete the task of which input edges are more important.
+
+To apply the IntergratedGradients method, we redefine the forward function
 
 ```python
 def model_forward(edge_mask, g):
@@ -167,13 +187,4 @@ ax, nx_g = visualize_subgraph(g, output_idx, num_hops, node_alpha=ig_attr_node, 
 plt.show()
 ```
 <img src="README.assets/Figure_3.png" style="zoom:50%;" />
-
-****
-
-## To Do List
-
-**Problems:**
-
-- make a heatmap plot for visualizing the subgraph.
-- the value of ig_attr_node and ig_attr_edge still to be something wrong.
 
