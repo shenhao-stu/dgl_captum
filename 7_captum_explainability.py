@@ -9,7 +9,7 @@ By the end of this tutorial, you will be able to:
 - Find the most important nodes and edges to the model
 - Visualize the node-centered subgraphs
 
-(Time estimate: 15 minutes)
+(Time estimate: 20 minutes)
 
 """
 
@@ -20,7 +20,7 @@ By the end of this tutorial, you will be able to:
 # made significant progress. Compared to cv and nlp domains, there is less
 # research and application of graph model interpretability, yet it is the key
 # to understanding deep graph neural networks. Generally, GNN explanation
-# research often starts with the following tasks: **Which input edges are more
+# research often starts with the following tasks: ** Which input edges are more
 # important? Which input nodes are more important? **
 
 # Node-centered subgraphs play a critical role in analyzing GNNs. The k-hop
