@@ -30,17 +30,18 @@ def visualize_subgraph(graph: dgl.DGLGraph, node_idx: int, num_hops: int, node_a
     :rtype: :class:`matplotlib.axes.Axes`, :class:`networkx.DiGraph`
     """
 
+    device = graph.device
     if node_alpha is not None:
         assert node_alpha.size(0) == graph.number_of_nodes()
         assert ((node_alpha >= 0) & (node_alpha <= 1)).all()
     else:
-        node_alpha = torch.ones(graph.number_of_nodes())
+        node_alpha = torch.ones(graph.number_of_nodes()).to(device)
 
     if edge_alpha is not None:
         assert edge_alpha.size(0) == graph.number_of_edges()
         assert ((edge_alpha >= 0) & (edge_alpha <= 1)).all()
     else:
-        edge_alpha = torch.ones(graph.number_of_edges())
+        edge_alpha = torch.ones(graph.number_of_edges()).to(device)
 
     # Only operate on a k-hop subgraph around `node_idx`.
     sg, _ = dgl.khop_in_subgraph(graph, node_idx, num_hops)
@@ -54,7 +55,7 @@ def visualize_subgraph(graph: dgl.DGLGraph, node_idx: int, num_hops: int, node_a
     sg.ndata['importance'] = node_alpha_subset
 
     # Transfer the subgraph to networkx.
-    nx_g = sg.to_networkx(node_attrs=['importance'], edge_attrs=['importance'])
+    nx_g = sg.cpu().to_networkx(node_attrs=['importance'], edge_attrs=['importance'])
     mapping = {k: i for k, i in enumerate(subnode_idx.tolist())}
     nx_g = nx.relabel_nodes(nx_g, mapping)
 
